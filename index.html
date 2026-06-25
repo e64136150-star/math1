@@ -227,7 +227,7 @@
                     infoCardContent.innerHTML = `
                     <div class="space-y-2">
                         <p><strong class="text-red-500">【上圖：定理失效】</strong> 內部紅色暴風眼 a 使得附近向量場扭曲、不連續，導致內部网格微觀相消崩潰，常規格林定理無法直接使用。</p>
-                        <p><strong class="text-cyan-600">【下圖：解決方案】</strong> 利用一條<span class="font-bold underline">青色割線通道</span>把外圈 C 與內圈 Cε 連通。進去的流量與出來的流量靠得極近、方向相反且完美對撞相消。透過把奇異點『挖空隔絕』，讓其餘安全區域 $D'$ 能夠再次適用格林定理！</p>
+                        <p><strong class="text-cyan-600">【下圖：解決方案】</strong> 利用一條<span class="font-bold underline">青色割線通道</span>把外圈 C 與內圈 Cε 連通。進去的流量與出來的流量靠得極近、方向相反且完美對撞相消。透過把奇異點『挖空隔絕』，讓其餘安全區域 D' 能夠再次適用格林定理！</p>
                     </div>`;
                     mathTitle.innerText = "🛠️ 奇異點幾何修正公式";
                     mathFormula.innerText = "$$\\oint_C \\mathbf{F} \\cdot d\\vec{r} + \\oint_{C_\\epsilon} \\mathbf{F} \\cdot d\\vec{r} = \\iint_{D'} \\left( \\frac{\\partial Q}{\\partial x} - \\frac{\\partial P}{\\partial y} \\right) dA$$";
@@ -378,7 +378,7 @@
                         ctx.closePath(); ctx.fill();
                     }
                     ctx.fillStyle = '#34d399'; ctx.font = 'bold 13px sans-serif';
-                    ctx.fillText('🛠️ 解決策略：拉出割線通道，內圈 Cε 順時針挖空排除', 30, startYBot - 12);
+                    ctx.fillText('🛠️ 解決策略：拉出割線通道，內圈 C' 順時針挖空排除', 30, startYBot - 12);
                     ctx.fillStyle = '#06b6d4'; ctx.font = '11px sans-serif';
                     ctx.fillText('⚡ 割線往返流量完美相消', startXBot + 10, cyBot - 12);
 
