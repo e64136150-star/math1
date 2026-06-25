@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微積分視覺化：格林定理 (Green's Theorem)</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        canvas {
+            background-color: #1e293b;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+
+    <header class="bg-emerald-600 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold tracking-wide">GreenViz - 格林定理動態流動實驗室</h1>
+            <span class="text-sm bg-emerald-700 px-3 py-1 rounded-full">知識科普整合版</span>
+        </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-4 mt-6">
+        <div class="flex border-b border-gray-200 bg-white rounded-t-xl overflow-hidden shadow-sm">
+            <button id="tabBasic" class="flex-1 py-3 text-center font-bold text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50/50 transition">
+                ⚡ 1. 格林定理流動演示
+            </button>
+            <button id="tabWarning" class="flex-1 py-3 text-center font-bold text-gray-500 hover:text-red-600 border-b-2 border-transparent hover:bg-red-50/30 transition">
+                ⚠️ 2. 什麼時候「不能」使用格林定理？
+            </button>
+        </div>
+    </div>
+
+    <main class="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <div class="lg:col-span-7 flex flex-col gap-4">
+            <div class="bg-white p-6 rounded-b-xl rounded-tr-xl shadow-sm border border-gray-100">
+                
+                <div id="singularityExplanation" class="mb-5 p-5 bg-red-50 border-l-4 border-red-500 rounded-r-lg hidden shadow-sm">
+                    <h3 class="text-lg font-bold text-red-800 mb-3 flex items-center gap-1">
+                        🛑 什麼是奇異點 (Singularity)？為什麼會讓定理失效？
+                    </h3>
+                    <div class="text-sm text-red-950 space-y-4 leading-relaxed">
+                        <div>
+                            <p class="font-bold text-red-900 mb-1">1. 什麼是奇異點？</p>
+                            <p class="pl-4">在數學向量場中，如果某個點會導致公式的<strong>分母為零</strong>（例如最經典的渦流場 \(\mathbf{F} = \frac{-y\mathbf{i} + x\mathbf{j}}{x^2+y^2}\) 在原點 \((0,0)\)），該點的向量長度會趨近於無限大，數學上完全無法定義。這個「斷裂的地雷點」就叫做<strong>奇異點</strong>。</p>
+                        </div>
+                        
+                        <div>
+                            <p class="font-bold text-red-900 mb-1">2. 為什麼格林定理會失效？</p>
+                            <p class="pl-4">格林定理之所以成立，是因為內部無數個微觀網格在相鄰牆面上能<strong>「你往上流、我往下流」完美對撞抵消</strong>。然而，一旦區域內包含了奇異點，該點附近的導數（偏微分）不存在，這條「互撞相消的幾何機制鏈」就會在中心點徹底斷裂。沒有了微觀的完美抵消，內部的面積分（右式）自然就無法順利等同於外圍的線積分（左式）。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 id="canvasTitle" class="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+                    <span class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></span> 動態幾何模擬畫布
+                </h2>
+                <p id="canvasDesc" class="text-sm text-gray-500 mb-4">動畫已切換為極慢速。請細細觀察微觀網格在相鄰牆面上「你往上、我往下」的精準對撞與相消過程。</p>
+                
+                <div class="w-full flex justify-center">
+                    <canvas id="vizCanvas" width="600" height="500" class="w-full max-w-[600px] aspect-[6/5]"></canvas>
+                </div>
+
+                <div id="basicControls" class="mt-4 flex flex-wrap gap-3">
+                    <button id="btnState1" class="px-4 py-2 bg-emerald-600 text-white font-medium text-sm rounded-lg shadow hover:bg-emerald-700 transition">
+                        1. 顯示巨觀區域與邊界流動
+                    </button>
+                    <button id="btnState2" class="px-4 py-2 bg-gray-200 text-gray-700 font-medium text-sm rounded-lg hover:bg-gray-300 transition">
+                        2. 微觀網格流動 (dA)
+                    </button>
+                    <button id="btnState3" class="px-4 py-2 bg-gray-200 text-gray-700 font-medium text-sm rounded-lg hover:bg-gray-300 transition">
+                        3. 演示內部邊界抵消
+                    </button>
+                </div>
+
+                <div id="warningControls" class="mt-4 flex flex-wrap gap-3 hidden">
+                    <button id="btnFail1" class="px-4 py-2 bg-red-600 text-white font-medium text-sm rounded-lg shadow hover:bg-red-700 transition">
+                        狀況 A：內部有不連續奇異點 🔴 (含下方幾何解決策略)
+                    </button>
+                    <button id="btnFail2" class="px-4 py-2 bg-gray-200 text-gray-700 font-medium text-sm rounded-lg hover:bg-gray-300 transition">
+                        狀況 B：線段未封閉（有缺口）💨
+                    </button>
+                    <button id="btnFail3" class="px-4 py-2 bg-gray-200 text-gray-700 font-medium text-sm rounded-lg hover:bg-gray-300 transition">
+                        狀況 C：邊界自交或非單連通 ❌
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 id="infoCardTitle" class="font-bold text-gray-900 text-md mb-2">💡 邊界流動的幾何真相</h3>
+                <div id="infoCardContent" class="text-sm text-gray-600 space-y-2">
+                    </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-5 flex flex-col gap-6">
+            <div id="mathCard" class="bg-slate-900 text-slate-100 p-6 rounded-xl shadow-lg">
+                <h2 id="mathTitle" class="text-emerald-400 font-bold text-lg mb-3 tracking-wide">📐 格林定理核心公式</h2>
+                <div id="mathFormula" class="bg-slate-800 p-4 rounded-lg overflow-x-auto text-center my-3 border border-slate-700 text-white">
+                    $$\oint_C (P \, dx + Q \, dy) = \iint_D \left( \frac{\partial Q}{\partial x} - \frac{\partial P}{\partial y} \right) dA$$
+                </div>
+                <div id="mathDesc" class="text-xs text-slate-400 space-y-2 mt-2">
+                    </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-gray-400 text-center py-6 mt-12 text-xs border-t border-gray-700">
+        <p>© 2026 格林定理視覺化互動專案 - 科普圖解更新版</p>
+    </footer>
+
+    <script>
+        const canvas = document.getElementById('vizCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI 控制元素
+        const tabBasic = document.getElementById('tabBasic');
+        const tabWarning = document.getElementById('tabWarning');
+        const basicControls = document.getElementById('basicControls');
+        const warningControls = document.getElementById('warningControls');
+        const singularityExplanation = document.getElementById('singularityExplanation');
+        
+        const canvasTitle = document.getElementById('canvasTitle');
+        const canvasDesc = document.getElementById('canvasDesc');
+        const infoCardTitle = document.getElementById('infoCardTitle');
+        const infoCardContent = document.getElementById('infoCardContent');
+        const mathTitle = document.getElementById('mathTitle');
+        const mathFormula = document.getElementById('mathFormula');
+        const mathDesc = document.getElementById('mathDesc');
+
+        const btn1 = document.getElementById('btnState1');
+        const btn2 = document.getElementById('btnState2');
+        const btn3 = document.getElementById('btnState3');
+        const btnFail1 = document.getElementById('btnFail1');
+        const btnFail2 = document.getElementById('btnFail2');
+        const btnFail3 = document.getElementById('btnFail3');
+
+        let currentTab = 'basic'; 
+        let currentState = 1;     
+        let currentFailState = 1; 
+        let flowOffset = 0;
+
+        // --- Tab 切換 ---
+        tabBasic.addEventListener('click', () => {
+            currentTab = 'basic';
+            tabBasic.className = "flex-1 py-3 text-center font-bold text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50/50 transition";
+            tabWarning.className = "flex-1 py-3 text-center font-bold text-gray-500 hover:text-red-600 border-b-2 border-transparent hover:bg-red-50/30 transition";
+            basicControls.classList.remove('hidden');
+            warningControls.classList.add('hidden');
+            singularityExplanation.classList.add('hidden'); 
+            updateContent();
+        });
+
+        tabWarning.addEventListener('click', () => {
+            currentTab = 'warning';
+            tabWarning.className = "flex-1 py-3 text-center font-bold text-red-600 border-b-2 border-red-600 bg-red-50/50 transition";
+            tabBasic.className = "flex-1 py-3 text-center font-bold text-gray-500 hover:text-emerald-600 border-b-2 border-transparent hover:bg-emerald-50/30 transition";
+            warningControls.classList.remove('hidden');
+            basicControls.classList.add('hidden');
+            if (currentFailState === 1) {
+                singularityExplanation.classList.remove('hidden');
+            }
+            updateContent();
+        });
+
+        btn1.addEventListener('click', () => { setMode(1); });
+        btn2.addEventListener('click', () => { setMode(2); });
+        btn3.addEventListener('click', () => { setMode(3); });
+        btnFail1.addEventListener('click', () => { setFailMode(1); });
+        btnFail2.addEventListener('click', () => { setFailMode(2); });
+        btnFail3.addEventListener('click', () => { setFailMode(3); });
+
+        function setMode(mode) {
+            currentState = mode;
+            [btn1, btn2, btn3].forEach((btn, idx) => {
+                btn.className = (idx + 1 === mode) ? "px-4 py-2 bg-emerald-600 text-white font-medium text-sm rounded-lg shadow hover:bg-emerald-700 transition" : "px-4 py-2 bg-gray-200 text-gray-700 font-medium text-sm rounded-lg hover:bg-gray-300 transition";
+            });
+            updateContent();
+        }
+
+        function setFailMode(mode) {
+            currentFailState = mode;
+            [btnFail1, btnFail2, btnFail3].forEach((btn, idx) => {
+                btn.className = (idx + 1 === mode) ? "px-4 py-2 bg-red-600 text-white font-medium text-sm rounded-lg shadow hover:bg-red-700 transition" : "px-4 py-2 bg-gray-200 text-gray-700 font-medium text-sm rounded-lg hover:bg-gray-300 transition";
+            });
+            
+            if (mode === 1) {
+                singularityExplanation.classList.remove('hidden');
+            } else {
+                singularityExplanation.classList.add('hidden');
+            }
+            updateContent();
+        }
+
+        function updateContent() {
+            if (currentTab === 'basic') {
+                canvasTitle.innerHTML = `<span class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></span> 動態幾何模擬畫布`;
+                mathTitle.className = "text-emerald-400 font-bold text-lg mb-3 tracking-wide";
+                mathTitle.innerText = "📐 格林定理核心公式";
+                mathFormula.innerText = "$$\\oint_C (P \\, dx + Q \\, dy) = \\iint_D \\left( \\frac{\\partial Q}{\\partial x} - \\frac{\\partial P}{\\partial y} \\right) dA$$";
+                if (currentState === 1) {
+                    canvasDesc.innerText = "顯示巨觀外圍邊界的沿線流水運動。";
+                    infoCardTitle.innerText = "💡 巨觀線積分的物理意義";
+                    infoCardContent.innerHTML = `<ul class="space-y-2 list-disc list-inside"><li><strong class="text-red-500">外圍曲線 C：</strong> 代表流體沿著最外圈邊界逆時針流動做的「總功」。</li></ul>`;
+                    mathDesc.innerHTML = `<p><span class="text-emerald-400 font-bold">左式 (線積分)：</span> 紅色大外圈的巨觀慢流動。</p><p><span class="text-blue-400 font-bold">右式 (面積分)：</span> 內部微觀漩渦強度總和。</p>`;
+                } else if (currentState === 2) {
+                    canvasDesc.innerText = "將內部區域切分成無數個微小的正方形 dA。";
+                    infoCardTitle.innerText = "💡 邊界流動的幾何真相";
+                    infoCardContent.innerHTML = `<ul class="space-y-2 list-disc list-inside"><li><strong class="text-emerald-600">微觀環流：</strong> 每個小格子各自做逆時針環流.</li></ul>`;
+                    mathDesc.innerHTML = `<p><span class="text-emerald-400 font-bold">右式分解：</span> 展開為無數個小方格 $dA$ 上打轉的微觀環流之和。</p>`;
+                } else {
+                    canvasDesc.innerText = "演示相鄰格子邊界相撞抵消的過程。";
+                    infoCardTitle.innerText = "💡 公用邊界的相消密碼";
+                    infoCardContent.innerHTML = `<ul class="space-y-2 list-disc list-inside"><li><strong class="text-amber-600">流水相消：</strong> 內部相鄰牆面水流對撞死光，只剩下沒人對撞的最外圍紅色河流！</li></ul>`;
+                    mathDesc.innerHTML = `<p><span class="text-emerald-400 font-bold">相消結論：</span> 內部抵消完後，剛好完美等於外圍不被抵消的線積分值！</p>`;
+                }
+            } else {
+                canvasTitle.innerHTML = `<span class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span> 禁區模擬：格林定理何時會失效？`;
+                mathTitle.className = "text-red-400 font-bold text-lg mb-3 tracking-wide";
+                if (currentFailState === 1) {
+                    canvasDesc.innerText = "狀況 A：內部有奇異點。請閱讀上方說明，並對比上下兩幅動態畫面的「幾何演變」。";
+                    infoCardTitle.innerText = "🛠️ 幾何對比真相：問題與割線法同步解析";
+                    infoCardContent.innerHTML = `
+                    <div class="space-y-2">
+                        <p><strong class="text-red-500">【上圖：定理失效】</strong> 內部紅色暴風眼 $a$ 使得附近向量場扭曲、不連續，導致內部网格微觀相消崩潰，常規格林定理無法直接使用。</p>
+                        <p><strong class="text-cyan-600">【下圖：解決方案】</strong> 利用一條<span class="font-bold underline">青色割線通道</span>把外圈 C 與內圈 Cε 連通。進去的流量與出來的流量靠得極近、方向相反且完美對撞相消。透過把奇異點『挖空隔絕』，讓其餘安全區域 $D'$ 能夠再次適用格林定理！</p>
+                    </div>`;
+                    mathTitle.innerText = "🛠️ 奇異點幾何修正公式";
+                    mathFormula.innerText = "$$\\oint_C \\mathbf{F} \\cdot d\\vec{r} + \\oint_{C_\\epsilon} \\mathbf{F} \\cdot d\\vec{r} = \\iint_{D'} \\left( \\frac{\\partial Q}{\\partial x} - \\frac{\\partial P}{\\partial y} \\right) dA$$";
+                    mathDesc.innerHTML = `<p><span class="text-cyan-400 font-bold">幾何精髓：</span> 割線通道正反向對撞抵消，不留痕跡。成功將原積分拆成外圈與順時針內小圓的代數和，避開地雷點！</p>`;
+                } else if (currentFailState === 2) {
+                    canvasDesc.innerText = "狀況 B：曲線未封閉（有缺口）。無法圍出明確的積分區域 D。";
+                    infoCardTitle.innerText = "❌ 曲線未封閉的幾何真相";
+                    infoCardContent.innerHTML = `<p>如果邊界路徑有缺口，就無法包圍出一塊面積 $D$。沒有封閉區域，自然就無法計算內部的雙重積分 $dA$。</p>`;
+                    mathTitle.innerText = "📐 封閉曲線前提";
+                    mathFormula.innerText = "$$\\int_C \\mathbf{F} \\cdot d\\vec{r} \\neq \\iint_D (\\dots) dA$$";
+                    mathDesc.innerHTML = `<p><span class="text-red-400 font-bold">致命錯誤：</span> 缺乏環路前提 ∮，左式與右式在幾何上無法建立等價。</p>`;
+                } else {
+                    canvasDesc.innerText = "狀況 C：邊界自交（自相交叉，如 8 字形）。導致內部旋轉方向出現衝突。";
+                    infoCardTitle.innerText = "❌ 路徑自交與走向衝突";
+                    infoCardContent.innerHTML = `<p>當曲線自己交叉時，前半圈是逆時針，後半圈會扭曲變成順時針。這會破壞格林定理標準的「左手區域走向原則」，導致正負號混亂崩潰。</p>`;
+                    mathTitle.innerText = "📐 單連通區域前提";
+                    mathFormula.innerText = "$$\\text{邊界 C 絕不能自我交叉 (Self-Intersecting)}$$";
+                    mathDesc.innerHTML = `<p><span class="text-red-400 font-bold">致命錯誤：</span> 自交導致子區域走向相反，破壞了公式中偏微分正負號的一致性基準。</p>`;
+                }
+            }
+            if (window.MathJax) { MathJax.typesetPromise(); }
+        }
+
+        // --- Canvas 繪圖輔助函數 ---
+        function drawFlowingEdge(ctx, x1, y1, x2, y2, color, width, offset, drawArrow = true) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            if (!drawArrow || color.includes('0.08')) return;
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len < 1) return;
+            const angle = Math.atan2(dy, dx);
+
+            let progress = (offset % len) / len;
+            const arrowX = x1 + dx * progress;
+            const arrowY = y1 + dy * progress;
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(arrowX, arrowY);
+            ctx.lineTo(arrowX - 5 * Math.cos(angle - Math.PI / 6), arrowY - 5 * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(arrowX - 5 * Math.cos(angle + Math.PI / 6), arrowY - 5 * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            flowOffset += 0.1; 
+
+            if (currentTab === 'basic') {
+                const cx = canvas.width / 2;
+                const cy = canvas.height / 2;
+                const rw = 240; const rh = 160;
+                const startX = cx - rw/2; const startY = cy - rh/2;
+
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.12)'; 
+                ctx.fillRect(startX, startY, rw, rh);
+
+                if (currentState === 1) {
+                    const cColor = '#ef4444';
+                    drawFlowingEdge(ctx, startX + rw, startY, startX, startY, cColor, 4, flowOffset); 
+                    drawFlowingEdge(ctx, startX, startY, startX, startY + rh, cColor, 4, flowOffset); 
+                    drawFlowingEdge(ctx, startX, startY + rh, startX + rw, startY + rh, cColor, 4, flowOffset); 
+                    drawFlowingEdge(ctx, startX + rw, startY + rh, startX + rw, startY, cColor, 4, flowOffset); 
+                    ctx.fillStyle = '#ffffff'; ctx.font = '16px sans-serif'; ctx.fillText('區域 D', cx - 25, cy + 5);
+                } else {
+                    const gridSize = 40;
+                    for (let x = startX; x < startX + rw; x += gridSize) {
+                        for (let y = startY; y < startY + rh; y += gridSize) {
+                            const isLeftEdge = (x === startX); const isRightEdge = (x + gridSize === startX + rw);
+                            const isTopEdge = (y === startY); const isBottomEdge = (y + gridSize === startY + rh);
+                            let innerColor = 'rgba(245, 158, 11, 0.6)'; 
+                            if (currentState === 3) innerColor = 'rgba(245, 158, 11, 0.08)'; 
+
+                            drawFlowingEdge(ctx, x + gridSize, y, x, y, isTopEdge ? '#ef4444' : innerColor, isTopEdge ? 2 : 1, flowOffset);
+                            drawFlowingEdge(ctx, x, y, x, y + gridSize, isLeftEdge ? '#ef4444' : innerColor, isLeftEdge ? 2 : 1, flowOffset);
+                            drawFlowingEdge(ctx, x, y + gridSize, x + gridSize, y + gridSize, isBottomEdge ? '#ef4444' : innerColor, isBottomEdge ? 2 : 1, flowOffset);
+                            drawFlowingEdge(ctx, x + gridSize, y + gridSize, x + gridSize, y, isRightEdge ? '#ef4444' : innerColor, isRightEdge ? 2 : 1, flowOffset);
+                        }
+                    }
+                }
+            } else {
+                if (currentFailState === 1) {
+                    const rw = 240; const rh = 150;
+                    const cx = canvas.width / 2;
+                    
+                    // --- 上半部：展示問題 ---
+                    const cyTop = 110;
+                    const startXTop = cx - rw/2; const startYTop = cyTop - rh/2;
+                    
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.05)'; 
+                    ctx.fillRect(startXTop, startYTop, rw, rh);
+                    drawFlowingEdge(ctx, startXTop + rw, startYTop, startXTop, startYTop, '#ef4444', 2.5, flowOffset); 
+                    drawFlowingEdge(ctx, startXTop, startYTop, startXTop, startYTop + rh, '#ef4444', 2.5, flowOffset); 
+                    drawFlowingEdge(ctx, startXTop, startYTop + rh, startXTop + rw, startYTop + rh, '#ef4444', 2.5, flowOffset); 
+                    drawFlowingEdge(ctx, startXTop + rw, startYTop + rh, startXTop + rw, startYTop, '#ef4444', 2.5, flowOffset);
+                    
+                    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(cx, cyTop, 6, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('a', cx - 4, cyTop + 4);
+                    
+                    ctx.strokeStyle = `rgba(239, 68, 68, ${0.3 + 0.15 * Math.sin(Date.now() / 120)})`;
+                    ctx.lineWidth = 1;
+                    for (let r = 15; r < 55; r += 15) {
+                        ctx.beginPath(); ctx.arc(cx, cyTop, r + 2 * Math.sin(flowOffset + r), 0, Math.PI * 2); ctx.stroke();
+                    }
+                    ctx.fillStyle = '#f87171'; ctx.font = 'bold 13px sans-serif';
+                    ctx.fillText('🔴 狀況 A1：內部含奇異點 a (常規格林定理崩潰失效)', 30, startYTop - 10);
+
+
+                    // --- 下半部：展示解決方案 ---
+                    const cyBot = 360;
+                    const startXBot = cx - rw/2; const startYBot = cyBot - rh/2;
+                    const r_eps = 25; const cutY1 = cyBot - 4; const cutY2 = cyBot + 4;
+
+                    ctx.fillStyle = 'rgba(16, 185, 129, 0.08)'; 
+                    ctx.fillRect(startXBot, startYBot, rw, rh);
+                    drawFlowingEdge(ctx, startXBot + rw, startYBot, startXBot, startYBot, '#ef4444', 2.5, flowOffset); 
+                    drawFlowingEdge(ctx, startXBot, startYBot, startXBot, startYBot + rh, '#ef4444', 2.5, flowOffset); 
+                    drawFlowingEdge(ctx, startXBot, startYBot + rh, startXBot + rw, startYBot + rh, '#ef4444', 2.5, flowOffset); 
+                    drawFlowingEdge(ctx, startXBot + rw, startYBot + rh, startXBot + rw, cutY2, '#ef4444', 2.5, flowOffset);
+                    drawFlowingEdge(ctx, startXBot + rw, cutY1, startXBot + rw, startYBot, '#ef4444', 2.5, flowOffset);
+                    
+                    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(cx, cyBot, 5, 0, Math.PI * 2); ctx.fill();
+                    
+                    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2.5; ctx.beginPath();
+                    const alpha = Math.asin(4 / r_eps);
+                    ctx.arc(cx, cyBot, r_eps, alpha, Math.PI * 2 - alpha, false); ctx.stroke();
+                    
+                    const innerX = cx + Math.sqrt(r_eps*r_eps - 16);
+                    drawFlowingEdge(ctx, startXBot + rw, cutY1, innerX, cutY1, '#06b6d4', 2, flowOffset); 
+                    drawFlowingEdge(ctx, innerX, cutY2, startXBot + rw, cutY2, '#06b6d4', 2, flowOffset); 
+
+                    const angleCe = (flowOffset * 0.025) % (Math.PI * 2); 
+                    if (angleCe > alpha && angleCe < Math.PI * 2 - alpha) {
+                        const ax = cx + r_eps * Math.cos(angleCe); const ay = cyBot + r_eps * Math.sin(angleCe);
+                        const tangentAngle = angleCe + Math.PI / 2;
+                        ctx.fillStyle = '#3b82f6'; ctx.beginPath(); ctx.moveTo(ax, ay);
+                        ctx.lineTo(ax - 5 * Math.cos(tangentAngle - Math.PI/6), ay - 5 * Math.sin(tangentAngle - Math.PI/6));
+                        ctx.lineTo(ax - 5 * Math.cos(tangentAngle + Math.PI/6), ay - 5 * Math.sin(tangentAngle + Math.PI/6));
+                        ctx.closePath(); ctx.fill();
+                    }
+                    ctx.fillStyle = '#34d399'; ctx.font = 'bold 13px sans-serif';
+                    ctx.fillText('🛠️ 解決策略：拉出割線通道，內圈 Cε 順時針挖空排除', 30, startYBot - 12);
+                    ctx.fillStyle = '#06b6d4'; ctx.font = '11px sans-serif';
+                    ctx.fillText('⚡ 割線往返流量完美相消', startXBot + 10, cyBot - 12);
+
+                    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.setLineDash([6, 4]);
+                    ctx.beginPath(); ctx.moveTo(20, 245); ctx.lineTo(580, 245); ctx.stroke(); ctx.setLineDash([]);
+
+                } else if (currentFailState === 2) {
+                    const cx = canvas.width / 2; const cy = canvas.height / 2;
+                    const rw = 240; const rh = 160;
+                    const startX = cx - rw/2; const startY = cy - rh/2;
+                    ctx.fillStyle = 'rgba(100, 116, 139, 0.05)'; ctx.fillRect(startX, startY, rw, rh);
+                    const cColor = '#94a3b8';
+                    drawFlowingEdge(ctx, startX + rw - 60, startY, startX, startY, cColor, 3, flowOffset); 
+                    drawFlowingEdge(ctx, startX, startY, startX, startY + rh, cColor, 3, flowOffset); 
+                    drawFlowingEdge(ctx, startX, startY + rh, startX + rw, startY + rh, cColor, 3, flowOffset); 
+                    drawFlowingEdge(ctx, startX + rw, startY + rh, startX + rw, startY, cColor, 3, flowOffset); 
+                    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+                    ctx.beginPath(); ctx.moveTo(startX + rw, startY); ctx.lineTo(startX + rw - 60, startY); ctx.stroke(); ctx.setLineDash([]);
+                    ctx.fillStyle = '#ef4444'; ctx.font = 'bold 16px sans-serif'; ctx.fillText('❌ 邊界有缺口！未封閉！', startX + rw - 170, startY - 10);
+                } else {
+                    const cx = canvas.width / 2; const cy = canvas.height / 2;
+                    const rw = 240; const rh = 160;
+                    const startX = cx - rw/2; const startY = cy - rh/2;
+                    ctx.fillStyle = 'rgba(100, 116, 139, 0.05)'; ctx.fillRect(startX, startY, rw, rh);
+                    ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy);
+                    ctx.bezierCurveTo(cx - 80, cy - 80, cx - 120, cy + 80, cx, cy); 
+                    ctx.bezierCurveTo(cx + 80, cy - 80, cx + 120, cy + 80, cx, cy); ctx.stroke();
+                    ctx.fillStyle = '#ef4444'; ctx.font = 'bold 20px sans-serif'; ctx.fillText('❌', cx - 10, cy + 7);
+                    ctx.fillStyle = '#f43f5e'; ctx.font = '13px sans-serif'; ctx.fillText('路徑自我交叉點 (走向衝突)', cx - 75, cy - 65);
+                }
+            }
+            requestAnimationFrame(draw);
+        }
+
+        // 啟動
+        setMode(1);
+        draw();
+    </script>
+</body>
+</html>
